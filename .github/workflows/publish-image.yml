@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  container-release:
+    name: Tagged container release to Google Artifact Registry
+    runs-on: ubuntu-latest
+    env:
+      KO_DOCKER_REPO: "us-central1-docker.pkg.dev/jimangel/public-repo/secret-migration"
+
+    # sdd "id-token" with the intended permissions
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    
+    steps:
+    # actions/checkout MUST come before auth
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v3
+      with:
+        go-version: '^1.19.1' # The Go version to download (if necessary) and use.
+
+    # workload Identity is awesome!
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: google-github-actions/auth@v0
+      with:
+        token_format: 'access_token'  # https://github.com/google-github-actions/auth#outputs
+        workload_identity_provider: 'projects/438731841740/locations/global/workloadIdentityPools/gh-keyless/providers/my-gha-provider'  # gcloud iam workload-identity-pools list --location=global
+        service_account: 'gha-keyless-sa-4-gar@jimangel.iam.gserviceaccount.com'
+        access_token_lifetime: '300s' # optional, default: '3600s' (1 hour)
+        # export_environment_variables: true # for GOOGLE_APPLICATION_CREDENTIALS
+
+    # the following steps are automatically authenticated
+
+    # part from https://cloud.google.com/community/tutorials/cicd-cloud-run-github-actions
+    - uses: imjasonh/setup-ko@v0.6
+    
+    # I had --platform=all but that took a long time, so I changed to the big two: --platform=linux/amd64,linux/arm64
+    - run: ko build --platform=linux/amd64,linux/arm64 --bare --tags "1.0.0-alpha,${{ github.sha }}" .
