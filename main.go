@@ -121,6 +121,10 @@ func main() {
 
 	// create a "originalList" of secret names only
 	originalList := []string{}
+
+	// create a "safeList" of secret names only for GCP
+	safeList := []string{}
+
 	for index, secret := range secretsAll.Items {
 
 		if *debug {
@@ -150,9 +154,6 @@ func main() {
 		// remove item if found in originalList and excludeList by comparison
 		originalList = remove(originalList, exludeName)
 	}
-
-	// list after cleaning
-	finalList, _ := json.Marshal(originalList)
 
 	// fail if we have no objects to migrate
 	if len(originalList) == 0 {
@@ -189,10 +190,13 @@ func main() {
 			// replace periods with dashes and create a new safe name [SECRETNAME]-[OBJECTKEYNAME]
 			safeSecretName := fmt.Sprintf(strings.Replace(secretName, ".", "-", -1) + "-" + strings.Replace(objName, ".", "-", -1))
 
+			// build the array
+			safeList = append(safeList, safeSecretName)
+
 			// Output what's being deleted
 			if *delete {
 				c.deleteSecret(safeSecretName)
-				log.Printf("  - Deleted secret in GCP named ['%s'] to ['%s'] GCP project\n", safeSecretName, *project)
+				log.Printf("  - Deleted secret named ['%s'] in GCP project: ['%s'] \n", safeSecretName, *project)
 				continue
 			}
 
@@ -201,14 +205,15 @@ func main() {
 				log.Printf("Running createGoogleSecret() for Kubernetes secret ['%s'], from ['%s'] namespace, named ['%s'] in Google project ['%s'], using data from the ['%s'] object key.\n", secretContent.ObjectMeta.Name, *namespace, safeSecretName, *project, objName)
 			}
 			c.createGoogleSecret(safeSecretName, objName, objData)
-			log.Printf("  - Created secret in GCP named ['%s'] to ['%s'] GCP project\n", safeSecretName, *project)
+			log.Printf("  - Created secret named ['%s'] in GCP project: ['%s']\n", safeSecretName, *project)
 
 		}
-
 	}
 
+	// list after cleaning
+	finalList, _ := json.Marshal(safeList)
 	// display the secret names modified without periods for record
-	log.Printf("📋 SafeName List: %s\n", fmt.Sprintf(strings.Replace(string(finalList), ".", "-", -1)))
+	log.Printf("📋 SafeName List: %v\n", string(finalList))
 
 }
 
