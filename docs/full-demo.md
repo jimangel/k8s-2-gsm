@@ -311,6 +311,22 @@ spec:
 EOF
 ```
 
+```
+# limited of what we care about:
+  serviceAccountName: ${K8S_SERVICEACCOUNT}
+    volumeMounts:
+    - name: secret-data
+      mountPath: "/etc/secrets"
+      readOnly: true
+  volumes:
+  - name: secret-data
+    csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: "workload-1-secrets"
+```
+
 Validate the deployment / secrets exist:
 
 ```
