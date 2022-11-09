@@ -26,7 +26,7 @@ jobs:
     # workload Identity is awesome!
     - id: 'auth'
       name: 'Authenticate to Google Cloud'
-      uses: google-github-actions/auth@v0
+      uses: google-github-actions/auth@v1
       with:
         token_format: 'access_token'  # https://github.com/google-github-actions/auth#outputs
         workload_identity_provider: 'projects/438731841740/locations/global/workloadIdentityPools/gh-keyless/providers/my-gha-provider'  # gcloud iam workload-identity-pools list --location=global
