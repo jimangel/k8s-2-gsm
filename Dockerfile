@@ -1,7 +1,3 @@
-# NOTE: This is not used, but available for others to build
-#
-# sudo docker build -t repo/conatiner-name:tag .
-# 
 # sudo docker run -v ${KUBECONFIG}:/root/.kube/config:rw \
 # -e GOOGLE_APPLICATION_CREDENTIALS=/gcp/creds.json \
 # -v ${GOOGLE_APPLICATION_CREDENTIALS}:/gcp/creds.json:ro \
@@ -15,7 +11,10 @@ RUN go mod download \
  && go vet -v \
  && CGO_ENABLED=0 go build -o /go/bin/k8s-2-gsm
 
-FROM gcr.io/distroless/static-debian11
+# FROM gcr.io/distroless/static-debian11:debug
+# sudo docker run -it --entrypoint=sh jimangel/k8s-2-gsm:latest
+FROM gcr.io/distroless/static-debian11:debug
 
 COPY --from=build /go/bin/k8s-2-gsm /
-CMD ["/k8s-2-gsm"]
+COPY --from=build /go/src/app/templates /templates
+ENTRYPOINT ["/k8s-2-gsm"]
