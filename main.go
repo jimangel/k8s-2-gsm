@@ -20,6 +20,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -265,16 +266,33 @@ func main() {
 		}
 	}
 
+	// adding a waitgroup to avoid data races when printing to stdout
+	// A WaitGroup waits for a collection of goroutines to finish. The main goroutine calls Add to set the number of goroutines to wait for. Then each of the goroutines runs and calls Done when finished. At the same time, Wait can be used to block until all goroutines have finished.
+	wg := new(sync.WaitGroup)
+	// Increment the WaitGroup counter.
+	wg.Add(1)
+
 	// generate JSON data dump from report
 	jsonReport(report)
+
+	// close the report
+	wg.Done()
+	// Increment the WaitGroup counter & wait for the template to be generated
+	wg.Add(1)
 
 	// generate k8s (YAML) output
 	// keeping "templates/" is important to dir structure (only bc, if built with `ko` it will use the symlink)
 	createTemplate(report, "templates/secret-provider-class.tmpl")
 
+	// close the template and run the rest (not conflicting)!
+	wg.Done()
+
 	// generate README help for migration
 	// keeping "templates/" is important to dir structure (only bc, if built with `ko` it will use the symlink)
 	createTemplate(report, "templates/helper-doc.tmpl")
+
+	// Wait blocks until the WaitGroup counter is zero.
+	wg.Wait()
 
 }
 
