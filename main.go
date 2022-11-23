@@ -357,7 +357,7 @@ func (c *Client) createGoogleSecret(myGCPSecretName string, mySecretK8sName stri
 	createSecretReq := &secretmanagerpb.CreateSecretRequest{
 		Parent:   fmt.Sprintf("projects/%s", *project),
 		SecretId: myGCPSecretName,
-		Secret:   &secretmanagerpb.Secret{Labels: map[string]string{"secret": mySecretK8sName, "uuid": uuid.String(), "namespace": *namespace}, Replication: &secretmanagerpb.Replication{Replication: &secretmanagerpb.Replication_Automatic_{Automatic: &secretmanagerpb.Replication_Automatic{}}}},
+		Secret:   &secretmanagerpb.Secret{Labels: map[string]string{"uuid": uuid.String(), "namespace": *namespace}, Replication: &secretmanagerpb.Replication{Replication: &secretmanagerpb.Replication_Automatic_{Automatic: &secretmanagerpb.Replication_Automatic{}}}},
 	}
 
 	// create the empty secret "template" using the defined request
