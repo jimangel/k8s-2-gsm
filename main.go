@@ -222,7 +222,10 @@ func main() {
 			}
 
 			// replace periods with dashes and create a new safe name [OPTIONAL PREFIX]-[NAMESPACE]-[SECRET NAME]-[OBJECT KEY NAME]
-			safeSecretName := strings.ToLower(fmt.Sprintf(strings.Replace(*prefix, ".", "-", -1) + "-" + strings.Replace(*namespace, ".", "-", -1) + "-" + strings.Replace(secretName, ".", "-", -1) + "-" + strings.Replace(objName, ".", "-", -1)))
+			safeSecretName := strings.ToLower(fmt.Sprintf(strings.Replace(*namespace, ".", "-", -1) + "-" + strings.Replace(secretName, ".", "-", -1) + "-" + strings.Replace(objName, ".", "-", -1)))
+
+			// if there's a prefix passed, prepend it!
+			safeSecretName = strings.Replace(*prefix, ".", "-", -1) + safeSecretName
 
 			// create a random UUID to be used if needed to identify/track
 			id := uuid.New()

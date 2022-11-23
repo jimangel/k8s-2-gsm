@@ -8,12 +8,14 @@ jobs:
   container-release:
     name: Tagged container release to Google Artifact Registry
     runs-on: ubuntu-latest
+    env:
+      KO_DOCKER_REPO: "us-central1-docker.pkg.dev/jimangel/public-repo/secret-migration"
 
     # add "id-token" with the intended permissions
     permissions:
       contents: 'read'
       id-token: 'write'
-    
+
     steps:
     # actions/checkout MUST come before auth
     - uses: actions/checkout@v3
@@ -22,48 +24,19 @@ jobs:
         go-version: '^1.19.3' # The Go version to download (if necessary) and use.
 
     # Workload Identity is awesome!
-    - id: auth
+    - id: 'auth'
       name: 'Authenticate to Google Cloud'
       uses: google-github-actions/auth@v1
       with:
         token_format: 'access_token'  # https://github.com/google-github-actions/auth#outputs
         workload_identity_provider: 'projects/438731841740/locations/global/workloadIdentityPools/gh-keyless/providers/my-gha-provider'  # gcloud iam workload-identity-pools list --location=global
         service_account: 'gha-keyless-sa-4-gar@jimangel.iam.gserviceaccount.com'
-        # I commented out the below lifetime because this builds takes 20+ minutes :(
-        #access_token_lifetime: '300s' # defaults: '3600s' (1 hour)
+        access_token_lifetime: '300s' # optional, default: '3600s' (1 hour)
 
     # the following steps are automatically authenticated
-    - name: Login to GAR
-      uses: docker/login-action@v2
-      with:
-        registry: us-central1-docker.pkg.dev
-        username: oauth2accesstoken
-        password: ${{ steps.auth.outputs.access_token }}
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
+    # part from https://cloud.google.com/community/tutorials/cicd-cloud-run-github-actions
+    - uses: imjasonh/setup-ko@v0.6
 
-    # https://github.com/docker/setup-buildx-action
-    - name: Set up Docker Buildx
-      id: buildx
-      uses: docker/setup-buildx-action@v2
-
-    - name: Docker meta
-      id: 'meta'
-      uses: docker/metadata-action@v4
-      with:
-        # list of Docker images to use as base name for tags
-        images: |
-          "us-central1-docker.pkg.dev/jimangel/public-repo/secret-migration"
-        # Docker tags based on the following events/attributes
-        tags: |
-          type=sha
-          "1.0.0-alpha"
-
-    - name: Build and push
-      uses: docker/build-push-action@v3
-      with:
-        context: .
-        platforms: linux/amd64,linux/arm/v7
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
+    # I had --platform=all but that took a long time, so I changed to the big two: --platform=linux/amd64,linux/arm64
+    - run: ko build --platform=linux/amd64,linux/arm64 --bare --tags "1.0.0-alpha,${{ github.sha }}" .

@@ -13,7 +13,7 @@ RUN go mod download \
 
 # FROM gcr.io/distroless/static-debian11:debug
 # sudo docker run -it --entrypoint=sh jimangel/k8s-2-gsm:latest
-FROM gcr.io/distroless/static-debian11:debug
+FROM gcr.io/distroless/static-debian11
 
 COPY --from=build /go/bin/k8s-2-gsm /
 COPY --from=build /go/src/app/templates /templates
