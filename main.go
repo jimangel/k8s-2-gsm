@@ -254,7 +254,7 @@ func main() {
 
 			// output more information on things being created, if --debug is set
 			if *debug {
-				log.Printf("Running createGoogleSecret() for Kubernetes secret ['%s'], from ['%s'] namespace, named ['%s'] in Google project ['%s'], using data from the ['%s'] object key.\n", secretContent.ObjectMeta.Name, *namespace, safeSecretName, *project, objName)
+				log.Printf("Running createGoogleSecret() for Kubernetes secret ['%s'], from ['%s'] namespace, named ['%s'] in Google project ['%s'], using ['%v'] from the ['%s'] object key.\n", secretContent.ObjectMeta.Name, *namespace, safeSecretName, *project, string(objData), objName)
 			}
 
 			// if --dry-run is NOT set, create the secret
