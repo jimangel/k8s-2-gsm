@@ -269,9 +269,11 @@ func main() {
 	jsonReport(report)
 
 	// generate k8s (YAML) output
+	// keeping "templates/" is important to dir structure (only bc, if built with `ko` it will use the symlink)
 	createTemplate(report, "templates/secret-provider-class.tmpl")
 
 	// generate README help for migration
+	// keeping "templates/" is important to dir structure (only bc, if built with `ko` it will use the symlink)
 	createTemplate(report, "templates/helper-doc.tmpl")
 
 }
@@ -303,7 +305,13 @@ func createTemplate(secretListData SecretsReportJSON, templateFile string) {
 	// parse the template
 	tmpl, err := template.ParseFiles(templateFile)
 	if err != nil {
-		log.Fatalf("Failed parsing template: %v", err)
+		// if built with /ko the files are build in the app dir
+		templateFile = os.Getenv("KO_DATA_PATH") + "/" + templateFile
+
+		tmpl, err = template.ParseFiles(templateFile)
+		if err != nil {
+			log.Fatalf("Failed parsing template: %v", err)
+		}
 	}
 
 	// apply the template to the vars map and write the result to file.
