@@ -245,6 +245,7 @@ func main() {
 			if *delete {
 				// don't actually delete anything if `--dry-run` is set
 				if !*dryrun {
+
 					// DELETION OF THE SECRET IN GOOGLE SECRET MANAGER
 					c.deleteSecret(safeSecretName)
 				}
@@ -259,6 +260,13 @@ func main() {
 
 			// if --dry-run is NOT set, create the secret
 			if !*dryrun {
+
+				// empty secrets shouldn't be created
+				if string(objData) == "" {
+					log.Printf("ERROR: ['%s'] in Kubernetes secret ['%s'] has an object value that is EMPTY... SKIPPING...\n", objName, secretContent.ObjectMeta.Name)
+					continue
+				}
+
 				// CREATION OF THE SECRET IN GOOGLE SECRET MANAGER
 				c.createGoogleSecret(safeSecretName, strings.ToLower(objName), id, objData)
 			}
