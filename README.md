@@ -1,8 +1,8 @@
-`k8s-2-gsm` is a containerized script that leverages the Google and Kubernetes API client to migrate Kubernetes secrets to Google Secret Manager.
+### REPO MOVED 11/30/22: [GoogleCloudPlatform/professional-services/tools/k8s-2-gsm](https://github.com/GoogleCloudPlatform/professional-services/tree/main/tools/k8s-2-gsm)
 
 ## Overview
 
-`k8s-2-gsm` runs once per namespace (the traditional security boundary per Kubernetes secret / tenant). `Admin SA` is a GCP service account with permissions to create/manage secrets in a GCP project.
+`k8s-2-gsm` is a containerized script that leverages the Google and Kubernetes API client to migrate Kubernetes secrets to Google Secret Manager.
 
 ![overview of end to end process using k8s-2-gsm to migrate Google secrets](pics/diagram.png)
 
