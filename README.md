@@ -1,23 +1,40 @@
 `k8s-2-gsm` is a containerized script that leverages the Google and Kubernetes API client to migrate Kubernetes secrets to Google Secret Manager.
 
+## Overview
+
+`k8s-2-gsm` runs once per namespace (the traditional security boundary per Kubernetes secret / tenant). `Admin SA` is a GCP service account with permissions to create/manage secrets in a GCP project.
+
 ![overview of end to end process using k8s-2-gsm to migrate Google secrets](pics/diagram.png)
 
-`k8s-2-gsm` runs once per namespace (the traditional security boundary per Kubernetes secret / tenant). `Admin SA` is a GCP service account with permissions to create/manage secrets in a GCP project. The `App SA` isn't used/created by `k8s-2-gsm`, but outlines how a single `App SA` would be created for each workload to access the secrets (less permissive).
+1. Creates, or deletes, secrets in Google Secret Manager based on all non-`service-account-token` secrets in a namespace. `k8s-2-gsm` exits/fails if any secret it's trying to migrate exists in GSM.
+1. Generates a JSON report of GSM object identification (NO SECRET OBJECT PAYLOAD / DATA). To be used in future automation / migration activities.
+1. Generates ready-to-apply `SecretProviderClass` yaml for each Kubernetes secret (printed to stdout). Allowing the CSI driver to consume multiple GSM secrets in a single CSI object.
+1. Generates a markdown doc with instructions how to migrate each secret (printed to stdout).
 
-The script dumps out non-sensitive data that can be imported to your tooling of choice to manage post-migration configuration.
+> `k8s-2-gsm` was designed to assist cluster operators with moving secrets to Google Secret Manager and providing the application owners with instructions to migrate.
 
-## Known limitations / security considerations
+## Out of scope
+
+1. It does not delete secrets from Kubernetes, the `--delete` flag only deletes Google Secret Manager secrets.
+1. The `App SA` isn't created or used by `k8s-2-gsm`, the creation left to cluster operators.
+1. It does not update any existing deployments to use the CSI driver (only instructions).
+
+After the script is ran, the next steps would be to migrate applications to the CSI secrets driver and delete the Kubernetes secrets.
+
+## Known limitations / Security considerations
 
 - Google Secret Manager is a key/value store, meaning only one secret per object.
   - Example: If you had 1 Kubernetes secret with 2 objects (tls.crt / tls.key), you now need 2 Google Secret Manager secrets (and 2 references / mounts in yaml).
 
     ![text view of secret yaml data](pics/secret-2-items.png)
 
-  - However, the CSI Secret Driver supports mounting multiple secrets store objects as a single volume.
+  - However, the CSI Secret Driver supports mounting multiple secrets store objects as a single volume via SecretProviderClass.
 - The values/file [payload size must be no larger than 64 KiB](https://cloud.google.com/secret-manager/quotas#content_limits)
   - Kubernetes secret [size limit is 1MiB](https://kubernetes.io/docs/concepts/configuration/secret/#restriction-data-size)
 
 `k8s-2-gsm` avoids using secret data payloads if possible. There is only one variable, `secretContent`, that captures secret object data and is used for `createGoogleSecret()` (ran as many times as you have secrets objects). The rest of the code is managing non-sensitive data for reporting.
+
+If you want to skip the following build steps, jump to a full [end to end demo](demo/README.md) (in /demo).
 
 ## Prerequisites
 
@@ -25,39 +42,10 @@ The script dumps out non-sensitive data that can be imported to your tooling of 
 - Google Project with billing enabled & owner access
   - with Secret Manager (`gcloud services enable secretmanager.googleapis.com`)
 
-The high-level steps are:
+## Quick start (using go) outside of GKE
 
-- Gather a list of secrets in the namespace
-- Filter the list of secrets to remove k8s service accounts and any secrets of type `kubernetes.io/service-account-token` or named in the `--exclude=""` options
-- Iterate through the remaining secret object(s) and create a new list of any sub-object names & data payloads
-- Copy each secret sub-object to Google Secret Manager
-- (soon) Output sample YAML to consume GSM secrets using the CSI driver
+The application attempts to act as a script and is a single file (main.go). Run it outside of a cluster.
 
-## Quick start using go
-
-The application attempts to act as a script and is a single file (main.go). Here's how to run it outside of a cluster.
-
-> **IMPORTANT:** `k8s-2-gsm` fails if any secret it's trying to migrate already exists in GCP.
-
-```shell
-# ./k8s-2-gsm --help
-  -condensed --condensed
-        If set --condensed or `--condensed=True` the JSON output is minified
-  -debug --debug
-        If set --debug or `--debug=True` more logging is enabled
-  -delete --delete
-        If set --delete or `--delete=True` the Google secrets are deleted. If the secrets exist, the program breaks - on purpose
-  -dry-run --dry-run
-        If set --dry-run or `--dry-run=True` no CREATE/DELETE actions are performed
-  -exclude string
-        Name of secrets to exclude, comma delimited, default: ''
-  -namespace string
-        Name of the namespace to look for secrets, default: default (default "default")
-  -prefix string
-        A prefix, like cluster name, to append to all GCP secrets during creation (Default GSM name: [OPTIONAL PREFIX]-[NAMESPACE]-[SECRET NAME]-[OBJECT KEY NAME])
-  -project string
-        Name of GCP project to migrate secrets, default: ''
-```
 ### 1) Set variables from `.env`
 
 ```shell
@@ -81,15 +69,37 @@ gcloud container clusters get-credentials ${GKE_NAME}
 # clone the repo
 git clone git@github.com:jimangel/k8s-2-gsm.git && cd ./k8s-2-gsm
 
-# create / copy k8s secrets to project gsm (implied default namespace)
-# optionally pass `--exclude="secret-name1,secret-name2,secret-name3"`
+# copy k8s secrets to project gsm
 go run . --project=${PROJECT_ID} --namespace=${NAMESPACE}
 
-# Other (--delete fails open):
+# go run . --help
 # go run . --project=${PROJECT_ID} --namespace=${NAMESPACE} --prefix="cluster1" --delete --debug
 ```
 
-## Running the script on GKE using Workload Identity
+## Building the `k8s-2-gsm` container
+
+The utility can be build using [ko build](https://github.com/ko-build/ko) (a binary that can build multi-arch golang containers with no container runtime)
+
+```
+# install ko & authenticate to a OCI repo
+
+# export the repo path to push
+export KO_DOCKER_REPO="us-central1-docker.pkg.dev/mylab/public/secret-migration"
+
+# create the image (auto push (build) to GCR if authenticated)
+ko build --platform=linux/amd64,linux/arm64 --bare --tags "1.0.0-alpha" .
+```
+
+Alternately, there's a [Dockerfile example](Dockerfile) too that may be used.
+
+```
+# authenticate to a OCI repo
+
+docker build -t REPO/K8S2GSM:TAG .
+
+# push to a public repo
+```
+## Quick start (using Workload Identity) inside GKE
 
 If running in a GKE cluster, Workload Identity provides credentials to write Google secrets. Ensure the following is met:
 
@@ -103,7 +113,7 @@ If running in a GKE cluster, Workload Identity provides credentials to write Goo
   - A Kubernetes service account to read secret data (`kubectl -n ${K8S_NAMESPACE} create serviceaccount ${K8S_SERVICEACCOUNT}`)
     - Annotate the K8s service account with GCP annotation (`kubectl annotate serviceaccount ${K8S_SERVICEACCOUNT} --namespace ${K8S_NAMESPACE} iam.gke.io/gcp-service-account=${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com`)
 
-### Setup Kubernetes Workload Identity secret reading permissions
+### Create Kubernetes secret reader RBAC
 
 The following allows us to grant the `${K8S_SERVICEACCOUNT}` the ability to view secrets via Workload Identity:
 
@@ -115,7 +125,7 @@ kubectl create clusterrole secret-reader --verb=get,list,watch --resource=secret
 kubectl -n ${K8S_NAMESPACE} create rolebinding read-secrets-${K8S_NAMESPACE} --clusterrole=secret-reader --serviceaccount=${K8S_NAMESPACE}:${K8S_SERVICEACCOUNT}
 ```
 
-### Run the job
+### Run the Kubernetes job
 
 ```shell
 cat <<EOF | kubectl apply -f -
@@ -128,7 +138,7 @@ spec:
   template:
     spec:
       containers:
-      - image: us-central1-docker.pkg.dev/jimangel/public-repo/secret-migration:1.0.0-alpha
+      - image: REPO/K8S2GSM:TAG  # <------ replace me
         name: migrate-secrets
         args:
         - --project=${GCP_PROJECT}
@@ -138,11 +148,13 @@ spec:
 EOF
 ```
 
-Debug by getting the logs:
+Debug using the logs
 
 ```shell
 # careful if you have lots of jobs
-kubectl -n ${K8S_NAMESPACE} logs job/$(kubectl -n ${K8S_NAMESPACE} get job -o=jsonpath="{.items[*]['metadata.name']}")
+kubectl -n ${K8S_NAMESPACE} logs job/migrate-secrets
+
+# consider appending the output to a file (ex: `> /tmp/log`)
 ```
 
 ### Job clean up
@@ -168,3 +180,7 @@ kubectl auth can-i --list --namespace ${NAMESPACE} --as system:serviceaccount:${
 - output yaml/readme help to files vs. stdout
 - account for networking failure / retries
 - for the day-2-day use, maybe switch to "roles/secretmanager.secretAccessor"
+
+## Disclaimer
+
+This is not an official Google project.

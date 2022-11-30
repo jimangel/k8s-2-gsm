@@ -1,8 +1,6 @@
-# Real world demo of swapping out secrets
+# End to end demo
 
-## Pre-reqs
-
-Clone this repo and set/update the environment variables in `.env` and export with 
+Clone this repo and set/update the environment variables in `.env` and export:
 
 ```shell
 source .env
@@ -197,7 +195,7 @@ kubectl create -f demo/google-secret-provider/provider-gcp-plugin.yaml
 gcloud iam service-accounts create ${GCP_WORKLOAD_SA}
 ```
 
-Allow ${K8S_SERVICEACCOUNT} in ${K8S_NAMESPACE} to act as the new GCP service account
+Allow `${K8S_SERVICEACCOUNT}` in `${K8S_NAMESPACE}` to act as the new GCP service account
 
 ```
 export K8S_SERVICEACCOUNT=workload-1
@@ -259,6 +257,7 @@ spec:
         path: "password"
 EOF
 ```
+
 Create deployments
 
 ```
@@ -293,8 +292,6 @@ cat /etc/secrets/user
 ```
 
 ### Demo clean up
-
-TODO: remove IAM bindings / annotations / RBAC in places not needed
 
 ```
 hack/clean-up.sh

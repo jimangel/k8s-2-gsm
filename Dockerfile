@@ -12,7 +12,7 @@ RUN go mod download \
  && CGO_ENABLED=0 go build -o /go/bin/k8s-2-gsm
 
 # FROM gcr.io/distroless/static-debian11:debug
-# sudo docker run -it --entrypoint=sh jimangel/k8s-2-gsm:latest
+# sudo docker run -it --entrypoint=sh REPO/CONTAINER:TAG
 FROM gcr.io/distroless/static-debian11
 
 COPY --from=build /go/bin/k8s-2-gsm /
