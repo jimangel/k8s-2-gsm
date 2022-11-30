@@ -135,8 +135,6 @@ kubectl auth can-i get secrets --namespace ${NAMESPACE} --as system:serviceaccou
 
 ### Run the migration container
 
-Get the latest tag / sha from [the repo](https://us-central1-docker.pkg.dev/jimangel/public-repo/secret-migration)
-
 ```
 cat <<EOF | kubectl apply -f -
 apiVersion: batch/v1
@@ -148,7 +146,7 @@ spec:
   template:
     spec:
       containers:
-      - image: us-central1-docker.pkg.dev/jimangel/public-repo/secret-migration:1.0.0-alpha
+      - image: REPO/K8S2GSM:TAG  # <------ replace me
         name: migrate-secrets
         args:
         - --project=${GCP_PROJECT}

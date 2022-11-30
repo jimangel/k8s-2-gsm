@@ -67,7 +67,8 @@ gcloud container clusters get-credentials ${GKE_NAME}
 
 ```shell
 # clone the repo
-git clone git@github.com:jimangel/k8s-2-gsm.git && cd ./k8s-2-gsm
+git clone git@github.com:GoogleCloudPlatform/professional-services.git && \
+cd ./professional-services/tools/k8s-2-gsm
 
 # copy k8s secrets to project gsm
 go run . --project=${PROJECT_ID} --namespace=${NAMESPACE}
